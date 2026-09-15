@@ -1,0 +1,29 @@
+fiap
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# Lambda build artifacts
+fase2/infrastructure/.lambda_build/
+infrastructure/.lambda_build/
+
+# Pipeline local output (Fase 2 --dry-run)
+fase2/output/
+output/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+.Rhistory
+
+# Data (Silver/Gold/processed — gerados, não versionados)
+fase2/data
+fase3/data
+data
