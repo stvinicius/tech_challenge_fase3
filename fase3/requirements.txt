@@ -4,5 +4,3 @@ plotly>=5.14.0,<7
 shap>=0.42.0,<0.50
 jupyter>=1.0.0,<2
 notebook>=6.5.0,<8
-ruff>=0.8.0,<1
-pre-commit>=4.0.0,<5

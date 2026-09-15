@@ -36,7 +36,15 @@ CI: [`.github/workflows/tests.yml`](.github/workflows/tests.yml) roda pytest em 
 - Slides executivos Fase 3: [`fase3/presentation/Fase3_executive.pdf`](fase3/presentation/Fase3_executive.pdf) — roteiro de vídeo (~5 min): [`fase3/presentation/SPEAKER_NOTES.md`](fase3/presentation/SPEAKER_NOTES.md)
 - Slides Fase 2: [`fase2/presentation/Executive_presentation.pdf`](fase2/presentation/Executive_presentation.pdf)
 - Model Card: [`fase3/MODEL_CARD.md`](fase3/MODEL_CARD.md)
-- Fontes de dados: [`CREDITS.md`](CREDITS.md)
 - Licença: [`LICENSE`](LICENSE) (MIT)
 
 `data/` de cada fase está no `.gitignore`. CSVs de origem da Fase 2 **estão versionados** em `fase2/raw_downloads/`. Material de curso em `fase3/fiap/` **não entra no git**.
+
+## Fontes
+
+Este repositório **não publica** microdados de aluno do SAEB. As tabelas são agregados municipais e estaduais já publicados:
+
+- [Base dos Dados](https://basedosdados.org) — INEP / Avaliação da Alfabetização (`br_inep_avaliacao_alfabetizacao_*`) e diretórios IBGE (`br_bd_diretorios_brasil_*`)
+- **INEP** — Indicador Criança Alfabetizada e metas do Compromisso Nacional Criança Alfabetizada
+
+> BASE DOS DADOS. Indicador Criança Alfabetizada e metas de alfabetização. Disponível em: https://basedosdados.org. Acesso em: 15 set. 2026.
