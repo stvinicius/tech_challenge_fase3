@@ -1,0 +1,19 @@
+Relatorio de classificacao — teste 2024
+Classes: Fora da meta (0) / Na meta (1)
+
+              precision    recall  f1-score   support
+
+Fora da meta     0.4771    0.6510    0.5506      2444
+     Na meta     0.5503    0.3745    0.4457      2788
+
+    accuracy                         0.5036      5232
+   macro avg     0.5137    0.5127    0.4981      5232
+weighted avg     0.5161    0.5036    0.4947      5232
+
+Metricas gerais
+Acuracia              : 0.5036
+Acerto equilibrado    : 0.5127
+Precisao              : 0.5503
+Recall                : 0.3745
+F1                    : 0.4457
+ROC-AUC               : 0.5714
