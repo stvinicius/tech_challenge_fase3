@@ -293,6 +293,13 @@ class ModelTrainer:
         filepath.parent.mkdir(parents=True, exist_ok=True)
         joblib.dump(self.best_model, filepath)
         print(f'\nModelo salvo em {filepath}')
+        try:
+            import sklearn
+            (filepath.parent / "sklearn_version.txt").write_text(
+                f"{sklearn.__version__}\n", encoding="utf-8"
+            )
+        except Exception:
+            pass
 
         results_path = filepath.parent / 'model_comparison_results.csv'
         self.get_results_df().to_csv(results_path, index=False)

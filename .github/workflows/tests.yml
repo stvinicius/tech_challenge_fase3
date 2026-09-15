@@ -5,6 +5,22 @@ on:
   pull_request:
 
 jobs:
+  guards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if course dumps (fiap/) are tracked
+        run: |
+          if git ls-files | grep -E '(^|/)fiap(/|$)'; then
+            echo "Material de curso em fiap/ nao pode entrar no git."
+            exit 1
+          fi
+      - name: Syntax check (ruff E9/F)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ruff>=0.8,<1"
+          ruff check .
+
   fase3:
     runs-on: ubuntu-latest
     defaults:
@@ -18,7 +34,7 @@ jobs:
       - name: Install Fase 3 test dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-test.txt
       - name: Run Fase 3 pytest
         env:
           SKLEARN_N_JOBS: "1"

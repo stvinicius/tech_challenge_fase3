@@ -8,10 +8,20 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 
-# Configurar estilo
 sns.set_style("whitegrid")
 plt.rcParams['figure.figsize'] = (12, 6)
 plt.rcParams['font.size'] = 10
+
+FASE3_ROOT = Path(__file__).resolve().parents[2]
+FIGURES_DIR = FASE3_ROOT / "reports" / "figures"
+
+
+def resolve_figure_path(save_path) -> Path:
+    """Sempre grava em fase3/reports/figures, mesmo se o CWD for notebooks/."""
+    path = Path(save_path)
+    if path.is_absolute():
+        return path
+    return FIGURES_DIR / path.name
 
 
 class DataVisualizer:
@@ -42,10 +52,10 @@ class DataVisualizer:
             save_path: Caminho para salvar a figura
         """
         if 'target' not in self.df.columns:
-            print("⚠️  Coluna 'target' não encontrada no DataFrame.")
+            print("   Coluna 'target' nao encontrada no DataFrame.")
             return self
         
-        print("📊 Plotando distribuição do target...")
+        print("Plotando distribuicao do target...")
         
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
         
@@ -69,10 +79,10 @@ class DataVisualizer:
         plt.tight_layout()
         
         # Salvar
-        save_path = Path(save_path)
+        save_path = resolve_figure_path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"   ✅ Gráfico salvo em {save_path}")
+        print(f"   Grafico salvo em {save_path}")
         
         plt.show()
         
@@ -86,7 +96,7 @@ class DataVisualizer:
             columns: Lista de colunas (None = todas numéricas)
             save_path: Caminho para salvar a figura
         """
-        print("📊 Plotando distribuições numéricas...")
+        print("Plotando distribuicoes numericas...")
         
         if columns is None:
             columns = self.df.select_dtypes(include=['int64', 'float64']).columns.tolist()
@@ -113,10 +123,10 @@ class DataVisualizer:
         plt.tight_layout()
         
         # Salvar
-        save_path = Path(save_path)
+        save_path = resolve_figure_path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"   ✅ Gráfico salvo em {save_path}")
+        print(f"   Grafico salvo em {save_path}")
         
         plt.show()
         
@@ -130,7 +140,7 @@ class DataVisualizer:
             columns: Lista de colunas (None = todas numéricas)
             save_path: Caminho para salvar a figura
         """
-        print("📊 Plotando matriz de correlação...")
+        print("Plotando matriz de correlacao...")
         
         if columns is None:
             numeric_df = self.df.select_dtypes(include=['int64', 'float64'])
@@ -147,10 +157,10 @@ class DataVisualizer:
         plt.title('Matriz de Correlação', fontsize=16, fontweight='bold', pad=20)
         
         # Salvar
-        save_path = Path(save_path)
+        save_path = resolve_figure_path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"   ✅ Matriz salva em {save_path}")
+        print(f"   Matriz salva em {save_path}")
         
         plt.show()
         
@@ -165,14 +175,14 @@ class DataVisualizer:
             save_path: Caminho para salvar (None = não salva)
         """
         if categorical_col not in self.df.columns:
-            print(f"⚠️  Coluna '{categorical_col}' não encontrada.")
+            print(f"   Coluna '{categorical_col}' nao encontrada.")
             return self
         
         if 'target' not in self.df.columns:
-            print("⚠️  Coluna 'target' não encontrada.")
+            print("   Coluna 'target' nao encontrada.")
             return self
         
-        print(f"📊 Plotando {categorical_col} vs target...")
+        print(f"Plotando {categorical_col} vs target...")
         
         # Criar crosstab
         ct = pd.crosstab(self.df[categorical_col], self.df['target'], normalize='index')
@@ -189,10 +199,10 @@ class DataVisualizer:
         
         # Salvar
         if save_path:
-            save_path = Path(save_path)
+            save_path = resolve_figure_path(save_path)
             save_path.parent.mkdir(parents=True, exist_ok=True)
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"   ✅ Gráfico salvo em {save_path}")
+            print(f"   Grafico salvo em {save_path}")
         
         plt.show()
         
@@ -205,14 +215,14 @@ class DataVisualizer:
         Args:
             save_path: Caminho para salvar a figura
         """
-        print("📊 Plotando valores faltantes...")
+        print("Plotando valores faltantes...")
         
         # Calcular missing
         missing = self.df.isnull().sum()
         missing = missing[missing > 0].sort_values(ascending=False)
         
         if len(missing) == 0:
-            print("   ✅ Não há valores faltantes no dataset!")
+            print("   Nao ha valores faltantes no dataset.")
             return self
         
         # Calcular percentual
@@ -238,10 +248,10 @@ class DataVisualizer:
         plt.tight_layout()
         
         # Salvar
-        save_path = Path(save_path)
+        save_path = resolve_figure_path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"   ✅ Gráfico salvo em {save_path}")
+        print(f"   Grafico salvo em {save_path}")
         
         plt.show()
         

@@ -21,7 +21,7 @@ Tables expected in raw_downloads/ (accepts .csv or .csv.gz, both the
 
 Usage:
   python pipelines/batch/ingest_batch.py
-  python pipelines/batch/ingest_batch.py --input-dir raw_downloads --dry-run
+  python pipelines/batch/ingest_batch.py --input-dir raw_downloads --dry-run  # writes output/bronze/
   python pipelines/batch/ingest_batch.py --bucket my-bronze-bucket --prefix batch
 """
 from __future__ import annotations
@@ -40,6 +40,7 @@ from common import (  # noqa: E402
     get_s3_client,
     standardize_columns,
     upload_dataframe_as_parquet,
+    write_parquet_local,
 )
 
 logger = get_logger("ingest_batch")
@@ -111,7 +112,13 @@ def read_csv_any(path: Path) -> pd.DataFrame:
 
 
 def process_table(
-    spec: TableSpec, path: Path, bucket: str, prefix: str, dry_run: bool, s3_client
+    spec: TableSpec,
+    path: Path,
+    bucket: str,
+    prefix: str,
+    dry_run: bool,
+    s3_client,
+    output_dir: Path,
 ) -> None:
     size_kb = path.stat().st_size / 1024
     logger.info("Reading %s (%.1f KB) for table '%s'", path.name, size_kb, spec.name)
@@ -122,7 +129,9 @@ def process_table(
 
     key = f"{prefix}/{spec.name}/{spec.name}.parquet"
     if dry_run:
-        logger.info("  [dry-run] nothing uploaded (destination would be s3://%s/%s)", bucket, key)
+        local_path = output_dir / prefix / spec.name / f"{spec.name}.parquet"
+        write_parquet_local(df, local_path)
+        logger.info("  [dry-run] written locally to %s (S3 destination would be s3://%s/%s)", local_path, bucket, key)
         return
 
     upload_dataframe_as_parquet(df, bucket, key, s3_client=s3_client)
@@ -145,9 +154,14 @@ def main() -> int:
         "--prefix", default="batch", help="Prefix inside the Bronze bucket (default: batch)"
     )
     parser.add_argument(
+        "--output-dir",
+        default="output/bronze",
+        help="Local Bronze folder in --dry-run mode (default: output/bronze)",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Reads and validates the CSVs without uploading anything to S3 (useful for local testing)",
+        help="Writes Parquet locally to --output-dir and does not touch S3",
     )
     args = parser.parse_args()
 
@@ -156,8 +170,9 @@ def main() -> int:
         logger.error("Input folder not found: %s", input_dir)
         return 1
 
+    output_dir = Path(args.output_dir)
     if args.dry_run:
-        logger.info("--dry-run mode: no data will be uploaded to S3")
+        logger.info("--dry-run mode: writing local Bronze to %s (no S3)", output_dir)
     s3_client = None if args.dry_run else get_s3_client()
 
     problems: list[str] = []
@@ -177,7 +192,9 @@ def main() -> int:
             continue
 
         try:
-            process_table(spec, path, args.bucket, args.prefix, args.dry_run, s3_client)
+            process_table(
+                spec, path, args.bucket, args.prefix, args.dry_run, s3_client, output_dir
+            )
             processed += 1
         except Exception:
             problems.append(spec.name)

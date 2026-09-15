@@ -30,9 +30,9 @@ pipeline stops immediately and the following stages do not run -- the same
 
 Usage:
   python pipelines/orchestrator.py
-  python pipelines/orchestrator.py --dry-run                  # no stage touches real S3
+  python pipelines/orchestrator.py --dry-run                  # ingest -> bronze local -> silver local -> gold local
   python pipelines/orchestrator.py --stages silver gold        # reprocess only silver + gold
-  python pipelines/orchestrator.py --stages ingest --dry-run   # only validates the input CSVs
+  python pipelines/orchestrator.py --stages ingest --dry-run   # CSVs -> output/bronze (no S3)
 """
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ def main() -> int:
 
     logger.info("== Pipeline orchestrator: %s ==", " -> ".join(s.key for s in selected))
     if args.dry_run:
-        logger.info("--dry-run mode: no stage will read/write real S3 data")
+        logger.info("--dry-run mode: ingest writes local Bronze; silver/gold stay offline")
 
     summary: list[tuple[Stage, bool, float]] = []
     start_total = time.monotonic()

@@ -34,7 +34,7 @@ natively recognize as partitions.
 
 Usage:
   python pipelines/batch/process_silver.py
-  python pipelines/batch/process_silver.py --dry-run                    # writes locally to output/silver/
+  python pipelines/batch/process_silver.py --dry-run   # reads output/bronze, writes output/silver
   python pipelines/batch/process_silver.py --bronze-bucket my-bronze --silver-bucket my-silver
 """
 from __future__ import annotations
@@ -56,7 +56,9 @@ from common import (  # noqa: E402
     get_s3_client,
     list_s3_keys,
     read_ndjson_from_s3,
+    read_ndjson_local,
     read_parquet_from_s3,
+    read_parquet_local,
     standardize_columns,
     upload_dataframe_partitioned,
 )
@@ -92,15 +94,69 @@ PARTITION_COLS = ["year", "state_code"]
 # Bronze reads
 # --------------------------------------------------------------------------- #
 
-def read_bronze_table(bucket: str, prefix: str, table: str, s3_client) -> pd.DataFrame:
+def read_bronze_table(
+    bucket: str,
+    prefix: str,
+    table: str,
+    s3_client,
+    *,
+    bronze_dir: Path | None = None,
+    dry_run: bool = False,
+    required: bool = True,
+) -> pd.DataFrame:
+    if dry_run:
+        if bronze_dir is None:
+            raise ValueError("bronze_dir is required in --dry-run")
+        path = Path(bronze_dir) / prefix / table / f"{table}.parquet"
+        if not path.exists():
+            if required:
+                raise FileNotFoundError(path)
+            logger.warning("Optional local bronze table missing: %s -- skipping", path)
+            return pd.DataFrame()
+        logger.info("Reading bronze batch (local): %s", path)
+        df = read_parquet_local(path)
+        logger.info("  -> %d row(s), %d column(s)", len(df), len(df.columns))
+        return df
+
     key = f"{prefix}/{table}/{table}.parquet"
     logger.info("Reading bronze batch: s3://%s/%s", bucket, key)
-    df = read_parquet_from_s3(bucket, key, s3_client=s3_client)
+    try:
+        df = read_parquet_from_s3(bucket, key, s3_client=s3_client)
+    except Exception:
+        if required:
+            raise
+        logger.warning("Optional bronze table missing: s3://%s/%s -- skipping", bucket, key)
+        return pd.DataFrame()
     logger.info("  -> %d row(s), %d column(s)", len(df), len(df.columns))
     return df
 
 
-def read_bronze_streaming(bucket: str, prefix: str, s3_client) -> pd.DataFrame:
+def read_bronze_streaming(
+    bucket: str,
+    prefix: str,
+    s3_client,
+    *,
+    bronze_dir: Path | None = None,
+    dry_run: bool = False,
+) -> pd.DataFrame:
+    if dry_run:
+        stream_dir = Path(bronze_dir) / prefix if bronze_dir is not None else None
+        if stream_dir is None or not stream_dir.exists():
+            logger.warning(
+                "No local streaming files under %s -- continuing with batch data only",
+                stream_dir,
+            )
+            return pd.DataFrame()
+        records: list[dict] = []
+        files = [
+            p for p in stream_dir.rglob("*")
+            if p.is_file() and p.suffix.lower() in {".json", ".ndjson", ".jsonl"}
+        ]
+        for path in files:
+            records.extend(read_ndjson_local(path))
+        logger.info("Reading bronze streaming (local): %d file(s), %d event(s)", len(files), len(records))
+        return pd.DataFrame.from_records(records)
+
     keys = list_s3_keys(bucket, f"{prefix}/", s3_client=s3_client)
     if not keys:
         logger.warning(
@@ -108,7 +164,7 @@ def read_bronze_streaming(bucket: str, prefix: str, s3_client) -> pd.DataFrame:
         )
         return pd.DataFrame()
 
-    records: list[dict] = []
+    records = []
     for key in keys:
         records.extend(read_ndjson_from_s3(bucket, key, s3_client=s3_client))
     logger.info("Reading bronze streaming: %d file(s), %d event(s)", len(keys), len(records))
@@ -258,6 +314,36 @@ def clean_state_targets(df: pd.DataFrame) -> pd.DataFrame:
     return df[keep]
 
 
+def clean_literacy_indicator_uf(df: pd.DataFrame) -> pd.DataFrame:
+    """Official INEP state/year indicator (municipal network), joined in Silver."""
+    columns = ["state_code", "year", "state_indicator_literacy_rate"]
+    if df.empty:
+        return pd.DataFrame(columns=columns)
+
+    df = standardize_columns(df)
+    df["sigla_uf"] = df["sigla_uf"].str.upper().str.strip()
+    df["ano"] = pd.to_numeric(df["ano"], errors="coerce").astype("Int64")
+    df["taxa_alfabetizacao"] = pd.to_numeric(df["taxa_alfabetizacao"], errors="coerce")
+
+    before = len(df)
+    if "rede" in df.columns:
+        df = df[df["rede"].astype(str).str.strip() == MUNICIPAL_NETWORK].copy()
+        logger.info(
+            "  child_literacy_indicator_uf: keeping Municipal network (code %s) -> %d/%d row(s)",
+            MUNICIPAL_NETWORK,
+            len(df),
+            before,
+        )
+
+    df = df.rename(columns={
+        "sigla_uf": "state_code",
+        "ano": "year",
+        "taxa_alfabetizacao": "state_indicator_literacy_rate",
+    })
+    df = df.drop_duplicates(subset=["state_code", "year"])
+    return df[columns]
+
+
 def clean_national_targets(df: pd.DataFrame) -> pd.DataFrame:
     df = standardize_columns(df)
     df["ano"] = pd.to_numeric(df["ano"], errors="coerce").astype("Int64")
@@ -310,15 +396,20 @@ def integrate(
     municipality_targets: pd.DataFrame,
     state_targets: pd.DataFrame,
     national_targets: pd.DataFrame,
+    uf_indicator: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Joins the indicator (municipality/year) with the other 5 entities. The
-    `municipalities` table is the canonical source of state_code/name/region --
-    the indicator data does not carry those attributes as reliably (streaming
-    is synthetic)."""
+    """Joins the indicator (municipality/year) with the other entities.
+
+    The municipalities table is the canonical source of state_code/name/region.
+    `child_literacy_indicator_uf` (optional) adds the official state-level
+    literacy rate for the same year — it is not a municipal target.
+    """
     df = indicators.merge(municipalities, on="municipality_id", how="left")
     df = df.merge(municipality_targets, on=["municipality_id", "year"], how="left")
     df = df.merge(state_targets, on=["state_code", "year"], how="left")
     df = df.merge(national_targets, on="year", how="left")
+    if uf_indicator is not None and not uf_indicator.empty:
+        df = df.merge(uf_indicator, on=["state_code", "year"], how="left")
     return df
 
 
@@ -418,6 +509,12 @@ def main() -> int:
         "--streaming-prefix", default="streaming", help="Bronze streaming prefix (default: streaming)"
     )
     parser.add_argument(
+        "--bronze-dir",
+        default="output/bronze",
+        help="Local Bronze folder in --dry-run mode (default: output/bronze, "
+        "the same default output of ingest_batch.py --dry-run)",
+    )
+    parser.add_argument(
         "--output-dir",
         default="output/silver",
         help="Local folder to write the result in --dry-run mode (default: output/silver)",
@@ -431,36 +528,51 @@ def main() -> int:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Reads Bronze normally, but writes the result locally to --output-dir instead of S3 Silver",
+        help="Reads Bronze from --bronze-dir (local) and writes Silver to --output-dir. No S3.",
     )
     args = parser.parse_args()
 
-    s3_client = get_s3_client()
+    s3_client = None if args.dry_run else get_s3_client()
+    bronze_dir = Path(args.bronze_dir)
+    read_kw = dict(
+        s3_client=s3_client,
+        bronze_dir=bronze_dir,
+        dry_run=args.dry_run,
+    )
     logger.info(
-        "== Silver processing: s3://%s/{%s,%s} -> %s ==",
-        args.bronze_bucket,
+        "== Silver processing: %s/{%s,%s} -> %s ==",
+        str(bronze_dir) if args.dry_run else f"s3://{args.bronze_bucket}",
         args.batch_prefix,
         args.streaming_prefix,
-        f"s3://{args.silver_bucket}/{SILVER_TABLE_NAME}/" if not args.dry_run else args.output_dir,
+        args.output_dir if args.dry_run else f"s3://{args.silver_bucket}/{SILVER_TABLE_NAME}/",
     )
 
     logger.info("-- Reading Bronze batch tables --")
     try:
-        states_raw = read_bronze_table(args.bronze_bucket, args.batch_prefix, "states", s3_client)
+        states_raw = read_bronze_table(
+            args.bronze_bucket, args.batch_prefix, "states", **read_kw
+        )
         municipalities_raw = read_bronze_table(
-            args.bronze_bucket, args.batch_prefix, "municipalities", s3_client
+            args.bronze_bucket, args.batch_prefix, "municipalities", **read_kw
         )
         national_targets_raw = read_bronze_table(
-            args.bronze_bucket, args.batch_prefix, "national_targets", s3_client
+            args.bronze_bucket, args.batch_prefix, "national_targets", **read_kw
         )
         state_targets_raw = read_bronze_table(
-            args.bronze_bucket, args.batch_prefix, "state_targets", s3_client
+            args.bronze_bucket, args.batch_prefix, "state_targets", **read_kw
         )
         municipality_targets_raw = read_bronze_table(
-            args.bronze_bucket, args.batch_prefix, "municipality_targets", s3_client
+            args.bronze_bucket, args.batch_prefix, "municipality_targets", **read_kw
         )
         assessment_raw = read_bronze_table(
-            args.bronze_bucket, args.batch_prefix, "child_literacy_indicator", s3_client
+            args.bronze_bucket, args.batch_prefix, "child_literacy_indicator", **read_kw
+        )
+        uf_indicator_raw = read_bronze_table(
+            args.bronze_bucket,
+            args.batch_prefix,
+            "child_literacy_indicator_uf",
+            required=False,
+            **read_kw,
         )
     except Exception:
         logger.exception(
@@ -469,7 +581,9 @@ def main() -> int:
         return 1
 
     logger.info("-- Reading Bronze streaming events --")
-    streaming_raw = read_bronze_streaming(args.bronze_bucket, args.streaming_prefix, s3_client)
+    streaming_raw = read_bronze_streaming(
+        args.bronze_bucket, args.streaming_prefix, **read_kw
+    )
 
     logger.info("-- Cleaning and standardizing per entity --")
     states_df = clean_states(states_raw)
@@ -479,13 +593,19 @@ def main() -> int:
     municipality_targets_df = clean_municipality_targets(municipality_targets_raw)
     assessment_batch_df = clean_literacy_assessment(assessment_raw)
     assessment_streaming_df = clean_streaming(streaming_raw)
+    uf_indicator_df = clean_literacy_indicator_uf(uf_indicator_raw)
 
     logger.info("-- Deduplication (batch + streaming) --")
     indicators_df = build_indicators(assessment_batch_df, assessment_streaming_df)
 
-    logger.info("-- Integration of the 6 entities by municipality/year --")
+    logger.info("-- Integration of the 6 entities + UF indicator by municipality/year --")
     silver_df = integrate(
-        indicators_df, municipalities_df, municipality_targets_df, state_targets_df, national_targets_df
+        indicators_df,
+        municipalities_df,
+        municipality_targets_df,
+        state_targets_df,
+        national_targets_df,
+        uf_indicator=uf_indicator_df,
     )
     logger.info("  -> %d row(s), %d column(s) before quality filters", len(silver_df), len(silver_df.columns))
 

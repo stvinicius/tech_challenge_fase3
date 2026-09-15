@@ -1,6 +1,10 @@
 import pytest
 
-from src.preprocessing.data_preparation import DataPreparator
+from src.preprocessing.data_preparation import (
+    DataPreparator,
+    HONEST_FEATURE_COLUMNS,
+    apply_honest_feature_set,
+)
 from tests.helpers import municipal_panel
 
 
@@ -55,6 +59,11 @@ def test_taxa_and_municipal_meta_out_of_final_X():
         assert col not in prep.X_train.columns
         assert col not in prep.X_test.columns
     assert "codigo_regiao" in prep.X_train.columns
+    for col in HONEST_FEATURE_COLUMNS:
+        if col in municipal_panel().columns or col == "codigo_regiao":
+            assert col in prep.X_train.columns
+    extras = [c for c in prep.X_train.columns if c not in HONEST_FEATURE_COLUMNS]
+    assert extras == []
 
 
 def test_temporal_split_years_and_groups():
@@ -63,6 +72,13 @@ def test_temporal_split_years_and_groups():
     assert set(prep.df.loc[prep.X_test.index, "ano"].unique()) == {2024}
     assert prep.groups_train is not None
     assert prep.groups_train.nunique() == prep.X_train.shape[0]
+
+
+def test_apply_honest_feature_set_keeps_canonical_list():
+    prep = _prepared()
+    X_train, X_test = apply_honest_feature_set(prep.X_train, prep.X_test)
+    assert set(X_train.columns) <= set(HONEST_FEATURE_COLUMNS)
+    assert "taxa_alfabetizacao" not in X_train.columns
 
 
 def test_random_split_forbidden():

@@ -25,7 +25,7 @@ ENGLISH_TO_PT: dict[str, str] = {
     "municipality_name": "nome_municipio",
     "state_code": "sigla_uf",
     "state_name": "nome_uf",
-    "region": "regiao",
+    "state_indicator_literacy_rate": "taxa_alfabetizacao_uf",
     "municipality_target_base_rate": "meta_municipio_taxa_base",
     "municipality_target_participation_rate": "meta_municipio_percentual_participacao",
     "municipality_target_literacy_level": "meta_municipio_nivel_alfabetizacao",

@@ -39,7 +39,7 @@ Arquivos: `models/best_model.pkl`, `models/model_comparison_results.csv`, `repor
 1. **Backtest temporal:** treino = 2023, teste = 2024. Sem `train_test_split` 80/20 aleatório.
 2. **CV + GridSearch só no treino**, com `GroupKFold` por `id_municipio`.
 3. **F1** escolhe o modelo (classe 1 rara no treino). Acurácia sozinha mente.
-4. O teste 2024 entra **uma vez**, no notebook 04.
+4. O teste 2024 entra **uma vez**, no notebook 04. O notebook 03 **não** calcula métricas de 2024.
 
 Não dá para “testar os outros algoritmos no teste para ver se melhoram”: isso vira escolha no gabarito.
 
@@ -93,9 +93,11 @@ pytest -q
 bash scripts/prepare_fase3.sh   # exporta output/silver → data/silver/indicador_alfabetizacao
 ```
 
-Slides da Fase 3: `presentation/Fase3_executive.pdf` (`python presentation/build_fase3_slides.py`).
+Slides executivos (linguagem não técnica, stakeholders): `presentation/Fase3_executive.pdf` (`python presentation/build_fase3_slides.py`). Roteiro do vídeo de ~5 min: `presentation/SPEAKER_NOTES.md`. Repositório: https://github.com/stvinicius/tech_challenge_fase3
 
-Usar o `.pkl` depois:
+Os notebooks 01, 03 e 04 **não dependem** de `data/processed` ter sido gravado: se a pasta faltar, `load_or_prepare_split` refaz o backtest a partir do Silver. A lista de colunas do modelo é `HONEST_FEATURE_COLUMNS` em `src/preprocessing/data_preparation.py`.
+
+Usar o `.pkl` depois (mesmo `scikit-learn` do `requirements-test.txt`; ver `models/sklearn_version.txt` e [`MODEL_CARD.md`](MODEL_CARD.md)):
 
 ```python
 import joblib

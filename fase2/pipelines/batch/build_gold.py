@@ -47,6 +47,7 @@ from common import (  # noqa: E402
     get_logger,
     get_s3_client,
     read_partitioned_parquet_from_s3,
+    read_partitioned_parquet_local,
     upload_dataframe_as_parquet,
     upload_dataframe_partitioned,
 )
@@ -77,7 +78,9 @@ def read_silver_from_s3(bucket: str, s3_client) -> pd.DataFrame:
 
 def read_silver_local(silver_dir: Path) -> pd.DataFrame:
     logger.info("[dry-run] Reading local Silver: %s/", silver_dir)
-    df = pd.read_parquet(silver_dir, engine="pyarrow")
+    df = read_partitioned_parquet_local(silver_dir)
+    if df.empty:
+        return df
     df["year"] = df["year"].astype(int)
     df["state_code"] = df["state_code"].astype(str)
     return df
@@ -172,6 +175,11 @@ def build_time_evolution(silver_df: pd.DataFrame) -> pd.DataFrame:
             municipalities_assessed=("municipality_id", "nunique"),
             avg_literacy_rate=("literacy_rate", "mean"),
             literacy_target=("_state_target", "first"),
+            **(
+                {"official_state_indicator_rate": ("state_indicator_literacy_rate", "first")}
+                if "state_indicator_literacy_rate" in tmp.columns
+                else {}
+            ),
         )
         .reset_index()
     )
@@ -181,7 +189,10 @@ def build_time_evolution(silver_df: pd.DataFrame) -> pd.DataFrame:
         "aggregation_level", "year", "state_code", "state_name", "region",
         "municipalities_assessed", "avg_literacy_rate", "literacy_target",
     ]
-    df = pd.concat([national[cols], state[cols]], ignore_index=True)
+    extra = ["official_state_indicator_rate"] if "official_state_indicator_rate" in state.columns else []
+    if extra:
+        national[extra[0]] = None
+    df = pd.concat([national[cols + extra], state[cols + extra]], ignore_index=True)
     df["gap"] = df["avg_literacy_rate"] - df["literacy_target"]
     df["avg_literacy_rate"] = df["avg_literacy_rate"].round(2)
     df["gap"] = df["gap"].round(2)

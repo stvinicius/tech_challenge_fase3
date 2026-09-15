@@ -10,11 +10,12 @@
 --   3. time_evolution          -- aggregated historical series (national + state)
 --                                 (single file, no partitioning)
 --
--- SOURCE OF TRUTH for bucket/database names: ./infrastructure/render_athena_ddl.sh
--- (reads PROJECT_NAME from config.sh). This checked-in file uses the default
--- PROJECT_NAME=brazil-literacy-pipeline. If you changed PROJECT_NAME, run:
---   ./infrastructure/render_athena_ddl.sh
--- and use the generated athena_ddl.generated.sql in the Athena console.
+-- The names used below (database, bucket) follow the defaults in
+-- infrastructure/config.sh (PROJECT_NAME=brazil-literacy-pipeline). If you
+-- ran setup_aws.sh with a custom PROJECT_NAME, replace:
+--   - `__GLUE_DATABASE__` (database)      -> value of $GLUE_DATABASE
+--   - `__GOLD_BUCKET__` (S3 bucket) -> value of $GOLD_BUCKET
+-- in the lines below before running this.
 --
 -- Partitioning via "partition projection": instead of MSCK REPAIR TABLE /
 -- ALTER TABLE ... ADD PARTITION (which would require reprocessing the
@@ -40,10 +41,10 @@
 
 -- Glue database (already created by setup_aws.sh -- recreating it here is
 -- just an idempotency safeguard in case this file is run on its own).
-CREATE DATABASE IF NOT EXISTS brazil_literacy_pipeline
+CREATE DATABASE IF NOT EXISTS __GLUE_DATABASE__
 COMMENT 'Gold layer for the Child Literacy Indicator (Tech Challenge Phase 2)';
 
-USE brazil_literacy_pipeline;
+USE __GLUE_DATABASE__;
 
 -- -----------------------------------------------------------------------------
 -- 1. municipality_indicator
@@ -74,14 +75,14 @@ COMMENT 'Percentage of literate students by municipality and year (Gold)'
 PARTITIONED BY (year INT, state_code STRING)
 ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
 STORED AS PARQUET
-LOCATION 's3://brazil-literacy-pipeline-gold/municipality_indicator/'
+LOCATION 's3://__GOLD_BUCKET__/municipality_indicator/'
 TBLPROPERTIES (
     'projection.enabled' = 'true',
     'projection.year.type' = 'integer',
     'projection.year.range' = '2019,2035',
     'projection.state_code.type' = 'enum',
     'projection.state_code.values' = 'AC,AL,AP,AM,BA,CE,DF,ES,GO,MA,MT,MS,MG,PA,PB,PR,PE,PI,RJ,RN,RS,RO,RR,SC,SP,SE,TO',
-    'storage.location.template' = 's3://brazil-literacy-pipeline-gold/municipality_indicator/year=${year}/state_code=${state_code}/'
+    'storage.location.template' = 's3://__GOLD_BUCKET__/municipality_indicator/year=${year}/state_code=${state_code}/'
 );
 
 -- -----------------------------------------------------------------------------
@@ -110,14 +111,14 @@ COMMENT 'Actual result vs. National Commitment to Literate Children target, by m
 PARTITIONED BY (year INT, state_code STRING)
 ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
 STORED AS PARQUET
-LOCATION 's3://brazil-literacy-pipeline-gold/target_vs_result/'
+LOCATION 's3://__GOLD_BUCKET__/target_vs_result/'
 TBLPROPERTIES (
     'projection.enabled' = 'true',
     'projection.year.type' = 'integer',
     'projection.year.range' = '2019,2035',
     'projection.state_code.type' = 'enum',
     'projection.state_code.values' = 'AC,AL,AP,AM,BA,CE,DF,ES,GO,MA,MT,MS,MG,PA,PB,PR,PE,PI,RJ,RN,RS,RO,RR,SC,SP,SE,TO',
-    'storage.location.template' = 's3://brazil-literacy-pipeline-gold/target_vs_result/year=${year}/state_code=${state_code}/'
+    'storage.location.template' = 's3://__GOLD_BUCKET__/target_vs_result/year=${year}/state_code=${state_code}/'
 );
 
 -- -----------------------------------------------------------------------------
@@ -142,4 +143,4 @@ CREATE EXTERNAL TABLE IF NOT EXISTS time_evolution (
 COMMENT 'Historical series of the indicator aggregated by year (national + state) (Gold)'
 ROW FORMAT SERDE 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe'
 STORED AS PARQUET
-LOCATION 's3://brazil-literacy-pipeline-gold/time_evolution/';
+LOCATION 's3://__GOLD_BUCKET__/time_evolution/';

@@ -1,10 +1,14 @@
-# Tech Challenge Phase 2 — Hybrid Pipeline for Literacy Analysis in Brazil
+# Tech Challenge Fase 2 — Pipeline híbrido de alfabetização no Brasil
 
-This folder is **Phase 2** (data engineering). The supervised model lives in [`../fase3`](../fase3/README.md).
+Esta pasta é a **Fase 2** (engenharia de dados). O modelo supervisionado está em [`../fase3`](../fase3/README.md).
 
-A **Batch + Streaming** data pipeline, 100% AWS, with a **Medallion Architecture** (Bronze / Silver / Gold) to integrate and analyze the **Child Literacy Indicator** ("Indicador Criança Alfabetizada"), using Pandas, Amazon Kinesis (on demand), and custom data-quality validations.
+Repositório: [stvinicius/tech_challenge_fase3](https://github.com/stvinicius/tech_challenge_fase3).
 
-> Capstone project for the Data Engineering course (POSTECH/FIAP) — combines Big Data Architecture, ETL Pipelines, Relational Databases and NoSQL for Data Science.
+Pipeline **batch + streaming**, 100% AWS, arquitetura **Medallion** (Bronze / Silver / Gold) para integrar o Indicador Criança Alfabetizada. Pandas, Kinesis sob demanda e quality gate próprio.
+
+> Trabalho da Pós Tech (FIAP) — Big Data, ETL, relacional e NoSQL aplicados a política pública de alfabetização.
+
+O detalhe da arquitetura AWS (seções 3–12) permanece abaixo. A operação **sem conta AWS** está na [seção 15](#15-testar-localmente-sem-aws---dry-run) — o `--dry-run` agora é **offline de ponta a ponta**.
 
 ---
 
@@ -335,24 +339,24 @@ The Gold layer was designed to be **directly consumable by Machine Learning mode
 
 ```
 fase2/
-├── README.md                      # this file
-├── requirements.txt               # boto3, pandas, pyarrow, plotly
-├── raw_downloads/                 # CSVs from basedosdados.org (not versioned)
+├── README.md
+├── requirements.txt
+├── raw_downloads/                 # CSVs da Base dos Dados (versionados neste repo)
 ├── pipelines/
 │   ├── common.py
 │   ├── orchestrator.py            # ingest -> silver -> gold
 │   ├── batch/
-│   │   ├── ingest_batch.py
-│   │   ├── process_silver.py      # writes literacy_rate / year= / literacy_indicator
+│   │   ├── ingest_batch.py        # --dry-run grava output/bronze
+│   │   ├── process_silver.py      # --dry-run lê Bronze local
 │   │   └── build_gold.py
 │   └── streaming/
-│       ├── producer.py
-│       └── lambda_consumer.py
-├── notebooks/dashboard.ipynb      # Gold consumption (Athena → S3 → local)
 ├── quality/validations.py
-├── infrastructure/                # AWS setup scripts
-├── tests/                         # quality-gate pytest
-└── presentation/Executive_presentation.pdf
+├── infrastructure/
+│   ├── athena_ddl.sql             # default PROJECT_NAME
+│   ├── athena_ddl.sql.in          # template
+│   └── render_athena_ddl.sh       # gera DDL com o bucket certo
+├── tests/                         # quality + dry-run ingest/silver/gold
+└── presentation/                  # PDF + build_fase2_slides.py
 ```
 
 ---
@@ -369,9 +373,9 @@ fase2/
 ### 1. Clone the repository and install dependencies
 
 ```bash
-git clone <repository-url>
-cd tech_challenge_alfabetizacao/fase2
-python -m venv .venv && source .venv/bin/activate   # optional, recommended
+git clone https://github.com/stvinicius/tech_challenge_fase3.git
+cd tech_challenge_fase3/fase2
+python -m venv .venv && source .venv/bin/activate   # opcional, recomendado
 pip install -r requirements.txt
 ```
 
@@ -467,30 +471,39 @@ To also remove the buckets/database/workgroup (permanent infrastructure), use th
 
 ---
 
-## 15. Testing Locally without AWS (`--dry-run`)
+## 15. Testar localmente sem AWS (`--dry-run`)
 
-All the Python scripts accept `--dry-run`, letting you validate the transformation logic **without touching any AWS resource**:
+`--dry-run` é **offline de ponta a ponta**: nenhum script lê ou grava S3.
 
 ```bash
-python pipelines/batch/ingest_batch.py --dry-run
-python pipelines/batch/process_silver.py --dry-run     # reads Bronze from S3 normally*, writes to output/silver/
-python pipelines/batch/build_gold.py --dry-run         # reads output/silver/, writes to output/gold/
-python pipelines/streaming/producer.py --dry-run       # writes events straight to output or S3, without using Kinesis
+python pipelines/orchestrator.py --dry-run
+# equivalente, estágio a estágio:
+python pipelines/batch/ingest_batch.py --dry-run          # raw_downloads/ -> output/bronze/
+python pipelines/batch/process_silver.py --dry-run        # output/bronze -> output/silver/
+python pipelines/batch/build_gold.py --dry-run            # output/silver -> output/gold/
+python pipelines/streaming/producer.py --dry-run          # eventos em disco, sem Kinesis
 python quality/validations.py --input-parquet output/silver --dry-run
-python pipelines/orchestrator.py --dry-run              # propagates --dry-run to every stage
 ```
 
-To feed **Phase 3** notebooks (Portuguese column names, Hive `ano=`):
+Os CSVs de origem **estão no git** (`raw_downloads/`). A tabela opcional
+`child_literacy_indicator_uf` entra no Silver como `state_indicator_literacy_rate`
+(indicador oficial da UF, rede municipal) e aparece na Gold `time_evolution`.
+
+Para alimentar os notebooks da **Fase 3** (nomes em português, Hive `ano=`):
 
 ```bash
 cd ../fase3
 python scripts/export_silver_fase3.py
-# or: bash scripts/prepare_fase3.sh
+# ou: bash scripts/prepare_fase3.sh
 ```
 
-See [`../fase3/README.md`](../fase3/README.md). Fase 2 pytest: `pytest -q` in this folder.
+DDL do Athena com outro `PROJECT_NAME`:
 
-> \* `process_silver.py --dry-run` still reads the real Bronze from S3 (only the final write is local) — for a fully offline test, use the sample data together with the individual modules, adjusting the `--bronze-bucket`/`--input-dir` parameters as needed.
+```bash
+./infrastructure/render_athena_ddl.sh
+```
+
+Ver [`../fase3/README.md`](../fase3/README.md). Testes: `pytest -q` nesta pasta.
 
 ---
 

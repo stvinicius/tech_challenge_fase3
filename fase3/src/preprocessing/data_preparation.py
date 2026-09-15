@@ -12,6 +12,91 @@ from sklearn.compose import ColumnTransformer
 
 from .silver_schema import PIPELINE_TABLE, read_partitioned_parquet
 
+HONEST_FEATURE_COLUMNS: tuple[str, ...] = (
+    "nome_uf",
+    "regiao",
+    "meta_municipio_percentual_participacao",
+    "meta_uf_percentual_participacao",
+    "meta_uf_alfabetizacao_2024",
+    "codigo_regiao",
+)
+
+
+def unusable_train_columns(X: pd.DataFrame) -> list[str]:
+    """Colunas nulas/constantes no treino ou trajetória da meta municipal."""
+    all_nan = X.columns[X.isna().all()].tolist()
+    constants = [c for c in X.columns if X[c].nunique(dropna=False) <= 1]
+    trajetoria = [
+        c for c in X.columns
+        if c.startswith("meta_municipio_alfabetizacao_")
+        or c.startswith("municipality_target_literacy_")
+        or c.startswith("proporcao_aluno_nivel_")
+        or c.startswith("proficiency_level_")
+        or c.startswith("prop_niveis_")
+        or c in {"diff_meta_mun_uf", "meta_uf_taxa_base"}
+        or (c.startswith("meta_uf_alfabetizacao_") and not c.endswith("_2024"))
+    ]
+    return sorted(set(all_nan) | set(constants) | set(trajetoria))
+
+
+def apply_honest_feature_set(
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Única fonte da lista usada nos notebooks 03 e 04."""
+    drop_cols = unusable_train_columns(X_train)
+    X_train = X_train.drop(columns=drop_cols, errors="ignore")
+    X_test = X_test.drop(columns=drop_cols, errors="ignore")
+    keep = [c for c in HONEST_FEATURE_COLUMNS if c in X_train.columns]
+    if keep:
+        extra = [c for c in X_train.columns if c not in keep]
+        if extra:
+            print("Fora do recorte honesto (nao listado em HONEST_FEATURE_COLUMNS):")
+            for col in extra:
+                print(f"      - {col}")
+        X_train = X_train[keep]
+        X_test = X_test[[c for c in keep if c in X_test.columns]]
+    return X_train, X_test
+
+
+def load_or_prepare_split(root: Path):
+    """Carrega data/processed ou refaz o backtest a partir do Silver."""
+    import joblib
+
+    root = Path(root)
+    processed = root / "data" / "processed"
+    required = [
+        "X_train.parquet",
+        "X_test.parquet",
+        "y_train.parquet",
+        "y_test.parquet",
+    ]
+    if all((processed / name).exists() for name in required):
+        print(f"Carregando {processed} (notebook 02)...")
+        X_train = pd.read_parquet(processed / "X_train.parquet")
+        X_test = pd.read_parquet(processed / "X_test.parquet")
+        y_train = pd.read_parquet(processed / "y_train.parquet")["target"]
+        y_test = pd.read_parquet(processed / "y_test.parquet")["target"]
+        X_train, X_test = apply_honest_feature_set(X_train, X_test)
+        preprocessor_path = processed / "preprocessor.pkl"
+        preprocessor = joblib.load(preprocessor_path) if preprocessor_path.exists() else None
+        groups_path = processed / "groups_train.parquet"
+        if groups_path.exists():
+            groups_train = pd.read_parquet(groups_path)["id_municipio"]
+            groups_train.index = X_train.index
+        else:
+            groups_train = None
+        return X_train, X_test, y_train, y_test, preprocessor, groups_train, "processed"
+
+    print("processed ausente. Preparando do Silver (meta 2024 + backtest 2023/2024)...")
+    prep = DataPreparator(
+        gold_path=str(root / "data" / "gold"),
+        silver_path=str(root / "data" / "silver"),
+    )
+    prep.prepare_all(target_method="meta")
+    X_train, X_test, y_train, y_test, preprocessor = prep.get_data()
+    return X_train, X_test, y_train, y_test, preprocessor, prep.groups_train, "silver"
+
 
 class DataPreparator:
     """
@@ -80,10 +165,10 @@ class DataPreparator:
             if not path.exists():
                 continue
             try:
-                print(f"📂 Carregando dados de {path}")
+                print(f"Carregando dados de {path}")
                 self.df = self._read_partitioned_parquet(path)
                 print(
-                    f"   ✅ Dataset carregado: {self.df.shape[0]:,} linhas, "
+                    f"   Dataset carregado: {self.df.shape[0]:,} linhas, "
                     f"{self.df.shape[1]} colunas"
                 )
                 return self
@@ -101,7 +186,7 @@ class DataPreparator:
         method='meta': 1 se taxa_alfabetizacao >= meta municipal 2024
         method='threshold': 1 se taxa_alfabetizacao >= threshold (taxa 0-100, não 743 SAEB)
         """
-        print(f"\n🎯 Criando variável target (método: {method})")
+        print(f"\nCriando variavel target (metodo: {method})")
 
         taxa_col = next(
             (c for c in ('taxa_alfabetizacao', 'literacy_rate') if c in self.df.columns),
@@ -159,7 +244,7 @@ class DataPreparator:
 
         target_counts = self.df['target'].value_counts()
         n = len(self.df)
-        print("\n   📊 Distribuição do target (município na meta / fora da meta):")
+        print("\n   Distribuicao do target (municipio na meta / fora da meta):")
         print(
             f"      Classe 0: {target_counts.get(0, 0):,} "
             f"({target_counts.get(0, 0) / n * 100:.1f}%)"
@@ -178,7 +263,7 @@ class DataPreparator:
         backtest (notebook 03 / ``drop_unusable_train_features``), para
         as features derivadas ainda poderem usar essas colunas.
         """
-        print("\n⚠️  Removendo features com data leakage...")
+        print("\nRemovendo features com data leakage...")
 
         leakage_features = [
             'literacy_rate',
@@ -201,50 +286,38 @@ class DataPreparator:
         ]
         if removed:
             self.df = self.df.drop(columns=removed)
-            print(f"   ❌ Removidas {len(removed)} features:")
+            print(f"   Removidas {len(removed)} features:")
             for feat in removed:
                 print(f"      - {feat}")
         else:
-            print("   ✅ Nenhuma feature de leakage encontrada")
+            print("   Nenhuma feature de leakage encontrada")
 
         return self
 
     def drop_unusable_train_features(self):
-        """Notebook 03: nulo no treino, constante, trajetória da meta municipal."""
+        """Notebook 03: nulo no treino, constante, trajetória da meta municipal, recorte honesto."""
         if self.X_train is None or self.X_test is None:
             raise RuntimeError("Rode split_data() antes de drop_unusable_train_features().")
 
-        X = self.X_train
-        all_nan = X.columns[X.isna().all()].tolist()
-        constants = [c for c in X.columns if X[c].nunique(dropna=False) <= 1]
-        trajetoria = [
-            c for c in X.columns
-            if c.startswith('meta_municipio_alfabetizacao_')
-            or c.startswith('municipality_target_literacy_')
-            or c.startswith('proporcao_aluno_nivel_')
-            or c.startswith('proficiency_level_')
-            or c.startswith('prop_niveis_')
-            or c in {'diff_meta_mun_uf', 'meta_uf_taxa_base'}
-            or (c.startswith('meta_uf_alfabetizacao_') and not c.endswith('_2024'))
-        ]
-        drop_cols = sorted(set(all_nan) | set(constants) | set(trajetoria))
+        drop_cols = unusable_train_columns(self.X_train)
         if drop_cols:
-            print("\n🧹 Fora do backtest honesto:")
+            print("\nFora do backtest honesto:")
+            all_nan = self.X_train.columns[self.X_train.isna().all()].tolist()
+            constants = [c for c in self.X_train.columns if self.X_train[c].nunique(dropna=False) <= 1]
             for col in drop_cols:
                 if col in all_nan:
-                    motivo = 'nula no treino'
+                    motivo = "nula no treino"
                 elif col in constants:
-                    motivo = 'constante no treino'
+                    motivo = "constante no treino"
                 else:
-                    motivo = 'trajetória municipal / mesma família da taxa_base'
+                    motivo = "trajetoria municipal / mesma familia da taxa_base"
                 print(f"      - {col} ({motivo})")
-            self.X_train = self.X_train.drop(columns=drop_cols, errors='ignore')
-            self.X_test = self.X_test.drop(columns=drop_cols, errors='ignore')
+        self.X_train, self.X_test = apply_honest_feature_set(self.X_train, self.X_test)
         return self
     
     def create_derived_features(self):
         """Cria features alinhadas ao EDA (nomes do Silver em português)."""
-        print("\n🔧 Criando features derivadas...")
+        print("\nCriando features derivadas...")
 
         created = []
         df = self.df
@@ -293,11 +366,11 @@ class DataPreparator:
         self.derived_features = created
 
         if created:
-            print(f"   ✅ Criadas {len(created)} features derivadas:")
+            print(f"   Criadas {len(created)} features derivadas:")
             for feat in created:
                 print(f"      + {feat}")
         else:
-            print("   ⚠️  Nenhuma feature derivada (colunas esperadas ausentes)")
+            print("   Nenhuma feature derivada (colunas esperadas ausentes)")
 
         return self
     
@@ -307,7 +380,7 @@ class DataPreparator:
         - Identifica features numéricas e categóricas
         - Cria pipeline de pré-processamento
         """
-        print("\n🔨 Preparando pipeline de pré-processamento...")
+        print("\nPreparando pipeline de pre-processamento...")
         
         # Separar features e target
         if self.X_train is not None:
@@ -328,12 +401,12 @@ class DataPreparator:
             c for c in feature_cols
             if frame[c].nunique(dropna=False) <= 1
         ]
-        print(f"\n   📊 Features identificadas:")
+        print(f"\n   Features identificadas:")
         print(f"      Numéricas ({len(numeric_features)}): {numeric_features[:5]}{'...' if len(numeric_features) > 5 else ''}")
         print(f"      Categóricas ({len(categorical_features)}): {categorical_features}")
         if constants:
             print(
-                f"   ⚠️  Features constantes (não informam o modelo): {constants}"
+                f"   Features constantes (nao informam o modelo): {constants}"
             )
         
         # Pipeline para features numéricas
@@ -357,7 +430,7 @@ class DataPreparator:
             remainder='drop'
         )
         
-        print(f"   ✅ Pipeline criado com sucesso!")
+        print("   Pipeline criado.")
         
         return self
     
@@ -397,7 +470,7 @@ class DataPreparator:
                 f"{int(test_mask.sum())} linhas."
             )
         print(
-            f"\n✂️  Backtest temporal: treino {train_year} / teste {test_year}"
+            f"\nBacktest temporal: treino {train_year} / teste {test_year}"
         )
         print("   Validação = CV no treino (notebook 03). Teste não entra no tuning.")
         self.X_train, self.y_train = X.loc[train_mask], y.loc[train_mask]
@@ -414,13 +487,13 @@ class DataPreparator:
             f"   Municípios em treino e teste (esperado no backtest): {n_overlap:,}"
         )
 
-        print("   ✅ Divisão concluída:")
+        print("   Divisao concluida:")
         print(f"      Treino: {len(self.X_train):,} amostras")
         print(f"      Teste:  {len(self.X_test):,} amostras")
 
         train_dist = self.y_train.value_counts(normalize=True)
         test_dist = self.y_test.value_counts(normalize=True)
-        print("\n   📊 Distribuição do target:")
+        print("\n   Distribuicao do target:")
         print(
             f"      Treino - Classe 0: {train_dist.get(0, 0)*100:.1f}% | "
             f"Classe 1: {train_dist.get(1, 0)*100:.1f}%"
@@ -444,7 +517,7 @@ class DataPreparator:
             target_threshold: Threshold para classificação
         """
         print("=" * 80)
-        print("🚀 INICIANDO PREPARAÇÃO DE DADOS")
+        print("INICIANDO PREPARACAO DE DADOS")
         print("=" * 80)
         
         (self
@@ -457,7 +530,7 @@ class DataPreparator:
          .prepare_features())
         
         print("\n" + "=" * 80)
-        print("✅ PREPARAÇÃO DE DADOS CONCLUÍDA COM SUCESSO!")
+        print("PREPARACAO DE DADOS CONCLUIDA")
         print("=" * 80)
         
         return self

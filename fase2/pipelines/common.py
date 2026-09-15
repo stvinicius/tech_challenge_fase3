@@ -14,8 +14,8 @@ import sys
 import unicodedata
 import uuid
 from io import BytesIO
+from pathlib import Path
 
-import boto3
 import pandas as pd
 
 PROJECT_NAME = os.environ.get("PROJECT_NAME", "brazil-literacy-pipeline")
@@ -57,10 +57,54 @@ def standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_s3_client():
+    import boto3
+
     return boto3.client("s3", region_name=AWS_REGION)
 
 
+def write_parquet_local(df: pd.DataFrame, path: Path) -> None:
+    """Writes a DataFrame as a single Parquet file on disk (offline Bronze)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(path, index=False, engine="pyarrow")
+
+
+def read_parquet_local(path: Path) -> pd.DataFrame:
+    return pd.read_parquet(path, engine="pyarrow")
+
+
+def read_partitioned_parquet_local(base_dir: Path) -> pd.DataFrame:
+    """Reads Hive-style Parquet on disk, reconstructing partition columns.
+
+    Concatenates file-by-file (pandas) so partitions with all-null float
+    columns (Arrow type ``null``) still combine with partitions that have
+    real doubles — ``pd.read_parquet(directory)`` as a dataset fails.
+    """
+    base_dir = Path(base_dir)
+    files = sorted(base_dir.rglob("*.parquet"))
+    if not files:
+        return pd.DataFrame()
+    frames: list[pd.DataFrame] = []
+    for path in files:
+        df = pd.read_parquet(path, engine="pyarrow")
+        for part in path.relative_to(base_dir).parts[:-1]:
+            if "=" in part:
+                col, value = part.split("=", 1)
+                df[col] = value
+        frames.append(df)
+    return pd.concat(frames, ignore_index=True)
+
+
+def read_ndjson_local(path: Path) -> list[dict]:
+    import json
+
+    body = Path(path).read_text(encoding="utf-8")
+    return [json.loads(line) for line in body.splitlines() if line.strip()]
+
+
 def get_kinesis_client():
+    import boto3
+
     return boto3.client("kinesis", region_name=AWS_REGION)
 
 

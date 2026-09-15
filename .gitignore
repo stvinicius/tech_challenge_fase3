@@ -1,4 +1,6 @@
 fiap
+fase3/fiap/
+**/fiap/
 
 # Python
 __pycache__/
@@ -15,6 +17,7 @@ htmlcov/
 # Lambda build artifacts
 fase2/infrastructure/.lambda_build/
 infrastructure/.lambda_build/
+fase2/infrastructure/athena_ddl.generated.sql
 
 # Pipeline local output (Fase 2 --dry-run)
 fase2/output/
@@ -26,6 +29,10 @@ output/
 # OS
 .DS_Store
 .Rhistory
+.mplconfig/
+
+# Slide preview dumps
+**/presentation/_preview/
 
 # Data (Silver/Gold/processed — gerados, não versionados)
 fase2/data
