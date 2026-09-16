@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gera presentation/Fase3_executive.pdf — slides para stakeholders (linguagem não técnica)."""
+"""Gera presentation/Fase3_executive.pdf — linguagem clara para público não técnico."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "presentation" / "Fase3_executive.pdf"
 FIGSIZE = (13.33, 7.5)
 GITHUB = "https://github.com/stvinicius/tech_challenge_fase3"
+VIDEO = "https://youtu.be/H-mDgqTfOLI"
 
 NAVY = "#0F2744"
 TEAL = "#1F6F8B"
@@ -46,7 +47,7 @@ def _title(fig, title: str) -> None:
     fig.add_artist(Rectangle((0.05, 0.822), 0.10, 0.007, transform=fig.transFigure, color=TEAL))
 
 
-def _bullets(fig, lines: list[str], y0: float = 0.74, step: float = 0.11, size: int = 15) -> None:
+def _bullets(fig, lines: list[str], y0: float = 0.74, step: float = 0.11, size: int = 16) -> None:
     y = y0
     for line in lines:
         fig.text(0.06, y, "●", fontsize=11, color=TEAL, va="top")
@@ -54,15 +55,28 @@ def _bullets(fig, lines: list[str], y0: float = 0.74, step: float = 0.11, size: 
         y -= step
 
 
-def _kpi(ax, x, y, w, h, value: str, caption: str) -> None:
+def _kpi(ax, x, y, w, h, header: str, value: str, caption: str, edge=TEAL) -> None:
+    ax.add_patch(FancyBboxPatch(
+        (x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.08",
+        facecolor=WHITE, edgecolor=edge, linewidth=1.5, transform=ax.transAxes,
+    ))
+    ax.text(x + w / 2, y + h * 0.86, header, ha="center", va="top",
+            fontsize=11, fontweight="bold", color=TEAL, transform=ax.transAxes)
+    ax.text(x + w / 2, y + h * 0.52, value, ha="center", va="center",
+            fontsize=36, fontweight="bold", color=NAVY, transform=ax.transAxes)
+    ax.text(x + w / 2, y + h * 0.16, caption, ha="center", va="center",
+            fontsize=12, color=MUTED, transform=ax.transAxes, linespacing=1.3)
+
+
+def _box(ax, x, y, w, h, title: str, body: str) -> None:
     ax.add_patch(FancyBboxPatch(
         (x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.08",
         facecolor=WHITE, edgecolor=TEAL, linewidth=1.3, transform=ax.transAxes,
     ))
-    ax.text(x + w / 2, y + h * 0.62, value, ha="center", va="center",
-            fontsize=28, fontweight="bold", color=NAVY, transform=ax.transAxes)
-    ax.text(x + w / 2, y + h * 0.22, caption, ha="center", va="center",
-            fontsize=11, color=MUTED, transform=ax.transAxes, linespacing=1.3)
+    ax.text(x + 0.04, y + h - 0.045, title, fontsize=14, fontweight="bold",
+            color=NAVY, va="top", transform=ax.transAxes)
+    ax.text(x + 0.04, y + h - 0.12, body, fontsize=13, color=INK, va="top",
+            transform=ax.transAxes, linespacing=1.45)
 
 
 def main() -> None:
@@ -73,136 +87,221 @@ def main() -> None:
         # 1. Capa
         fig = plt.figure(figsize=FIGSIZE)
         _chrome(fig, 1, n_pages)
-        fig.text(0.08, 0.72, "Apresentação executiva", fontsize=13, color=TEAL, fontweight="bold")
+        fig.text(0.08, 0.74, "FIAP Pós Tech  ·  Vinicius Santos", fontsize=13,
+                 color=TEAL, fontweight="bold")
         fig.text(
-            0.08, 0.52,
-            "Dá para saber, com antecedência,\nse o município vai bater a meta\nde alfabetização de 2024?",
-            fontsize=30, fontweight="bold", color=NAVY, va="center", linespacing=1.22,
+            0.08, 0.54,
+            "O modelo antecipa quem bate\na meta de alfabetização em 2024?",
+            fontsize=28, fontweight="bold", color=NAVY, va="center", linespacing=1.22,
         )
-        fig.add_artist(Rectangle((0.08, 0.34), 0.16, 0.008, transform=fig.transFigure, color=ACCENT))
+        fig.add_artist(Rectangle((0.08, 0.38), 0.16, 0.008, transform=fig.transFigure, color=ACCENT))
         fig.text(
-            0.08, 0.27,
-            "Resposta curta: com o que o gestor já sabe no início do ano, não.\n"
-            "Geografia e participação na prova não antecipam quem cruza a meta.",
-            fontsize=14, color=MUTED, va="top", linespacing=1.45,
+            0.08, 0.30,
+            "Não. Ele tira 51 — empata com cara ou coroa — e 45 na prova.\n"
+            "Um chute “todas as cidades bateram” tira 70 e ganha.\n"
+            "Não é erro de software. O mapa não antecipa a meta.",
+            fontsize=16, color=INK, va="top", linespacing=1.45,
         )
-        fig.text(0.08, 0.12, "Vinicius Santos", fontsize=13, color=INK)
+        fig.text(
+            0.08, 0.155,
+            "Fonte: INEP / Base dos Dados  ·  5.232 municípios  ·  rede municipal, 2023 e 2024",
+            fontsize=12, color=MUTED,
+        )
+        fig.text(
+            0.08, 0.115,
+            "Vídeo da apresentação:  " + VIDEO,
+            fontsize=13, color=TEAL, fontweight="bold", url=VIDEO,
+        )
         pdf.savefig(fig)
         plt.close(fig)
 
-        # 2. Contexto
+        # 2. O que o modelo faz
         fig = plt.figure(figsize=FIGSIZE)
         _chrome(fig, 2, n_pages)
-        _title(fig, "O compromisso é com a criança. O número é do município.")
-        _bullets(fig, [
-            "O Brasil tem uma meta nacional: toda criança alfabetizada\naté o fim do 2º ano, até 2030.",
-            "Cada município recebeu uma meta própria para 2024 — uma barra\nfixa, publicada com antecedência.",
-            "Olhamos 5.232 municípios, nos anos 2023 e 2024,\nna rede municipal (não o aluno, não a escola).",
-            "A taxa já veio em porcentagem (0 a 100%). Não usamos\no corte de 743 pontos da prova do aluno.",
-        ], step=0.13, size=16)
-        pdf.savefig(fig)
-        plt.close(fig)
-
-        # 3. Pergunta
-        fig = plt.figure(figsize=FIGSIZE)
-        _chrome(fig, 3, n_pages)
-        _title(fig, "A pergunta que o gestor faz em janeiro")
-        _bullets(fig, [
-            "“Quais municípios vão precisar de apoio para bater a meta deste ano?”",
-            "Essa decisão precisa ser tomada antes de sair o resultado de 2024.",
-            "Por isso recusamos olhar a taxa do próprio ano. Seria copiar\no gabarito da prova que ainda não aconteceu.",
-            "O que restou para o palpite: região, estado, quanto da turma\nfez a prova, e a meta do estado — não a do município.",
-        ], step=0.13, size=16)
-        pdf.savefig(fig)
-        plt.close(fig)
-
-        # 4. Como medimos
-        fig = plt.figure(figsize=FIGSIZE)
-        _chrome(fig, 4, n_pages)
-        _title(fig, "Como testamos sem trapacear")
-        ax = fig.add_axes([0.06, 0.18, 0.88, 0.56])
-        ax.set_xlim(0, 10)
-        ax.set_ylim(0, 4)
+        _title(fig, "O que o modelo tenta fazer")
+        ax = fig.add_axes([0, 0, 1, 1])
         ax.axis("off")
-        steps = [
-            (0.3, "1. Estudar 2023", "O modelo só vê o passado.\nAprende com o simulado."),
-            (3.5, "2. Escolher o palpite", "Comparamos vários métodos\nsó com 2023. 2024 está lacrado."),
-            (6.7, "3. Prova de 2024", "Uma vez. Sem voltar atrás\npara escolher o método “que deu sorte”."),
-        ]
-        for x, title, body in steps:
-            ax.add_patch(FancyBboxPatch(
-                (x, 0.7), 2.9, 2.6, boxstyle="round,pad=0.04,rounding_size=0.12",
-                facecolor=WHITE, edgecolor=TEAL, linewidth=1.4,
-            ))
-            ax.text(x + 1.45, 2.55, title, ha="center", va="center", fontsize=15,
-                    fontweight="bold", color=NAVY)
-            ax.text(x + 1.45, 1.55, body, ha="center", va="center", fontsize=12,
-                    color=MUTED, linespacing=1.45)
-            if x < 6:
-                ax.annotate("", xy=(x + 3.25, 2.0), xytext=(x + 3.05, 2.0),
-                            arrowprops=dict(arrowstyle="-|>", color=NAVY, lw=1.5))
+        _box(
+            ax, 0.06, 0.42, 0.42, 0.32,
+            "A pergunta (sim ou não)",
+            "Este município bate a meta\nde alfabetização de 2024?\n\nPergunta de janeiro.\nO resultado do ano ainda não saiu.",
+        )
+        _box(
+            ax, 0.52, 0.42, 0.42, 0.32,
+            "O que ele pode olhar",
+            "Só o mapa: região, estado\ne quantas crianças fizeram a prova.\n\nNão olha a taxa do ano.\nOlhar a taxa seria colar.",
+        )
+        fig.text(
+            0.06, 0.28,
+            "São 5.232 municípios, só a rede municipal. Não é o aluno, não é a escola.\n"
+            "Não cruzamos renda. A taxa já veio de 0 a 100%. O corte 743 da prova do aluno não entra.",
+            fontsize=15, color=INK, va="top", linespacing=1.4,
+        )
         fig.text(
             0.06, 0.12,
-            "Analogia: ninguém escolhe o material de estudo olhando a prova do vestibular.",
+            "Estudou 2023. Foi cobrado em 2024, uma vez, sem colar.",
             fontsize=13, color=MUTED,
         )
         pdf.savefig(fig)
         plt.close(fig)
 
-        # 5. Resultado
+        # 3. Os três números
         fig = plt.figure(figsize=FIGSIZE)
-        _chrome(fig, 5, n_pages)
-        _title(fig, "O palpite honesto empata com cara ou coroa")
+        _chrome(fig, 3, n_pages)
+        _title(fig, "Três números do modelo. Nenhum é a meta da cidade.")
+        fig.text(
+            0.05, 0.78,
+            "Leia como um boletim de 0 a 100. Quanto maior, melhor o palpite — não a alfabetização.",
+            fontsize=14, color=MUTED, va="top",
+        )
         ax = fig.add_axes([0, 0, 1, 1])
         ax.axis("off")
-        _kpi(ax, 0.06, 0.38, 0.27, 0.32, "~50%", "acerto do modelo\nno ano de 2024")
-        _kpi(ax, 0.365, 0.38, 0.27, 0.32, "53%", "dos municípios já estavam\nna meta em 2024")
-        _kpi(ax, 0.67, 0.38, 0.27, 0.32, "Chute ganha", "dizer “todos na meta”\nacerta mais que o modelo")
-        fig.text(
-            0.06, 0.22,
-            "Isso não é falha de software. Sem a taxa do ano, região e participação\n"
-            "não dizem quem vai cruzar a barra. Um modelo “bonito” aqui seria suspeito.",
-            fontsize=15, color=INK, va="top", linespacing=1.4,
+        _kpi(
+            ax, 0.05, 0.36, 0.28, 0.36,
+            "CARA OU COROA",
+            "51",
+            "o modelo empata\ncom uma moeda",
+        )
+        _kpi(
+            ax, 0.36, 0.36, 0.28, 0.36,
+            "NOTA DO MODELO",
+            "45",
+            "o sim ou não\nna prova de 2024",
+        )
+        _kpi(
+            ax, 0.67, 0.36, 0.28, 0.36,
+            "UM CHUTE",
+            "70",
+            "“todas bateram”\nganha do modelo",
+            edge=ACCENT,
+        )
+        ax.add_patch(FancyBboxPatch(
+            (0.05, 0.10), 0.90, 0.20, boxstyle="round,pad=0.015,rounding_size=0.06",
+            facecolor=WHITE, edgecolor=ACCENT, linewidth=1.6, transform=ax.transAxes,
+        ))
+        ax.text(
+            0.50, 0.24,
+            "A meta da cidade é a taxa de alfabetização. Não é 70.",
+            ha="center", va="center", fontsize=16, fontweight="bold", color=NAVY,
+            transform=ax.transAxes,
+        )
+        ax.text(
+            0.50, 0.155,
+            "51, 45 e 70 medem só o palpite. 70 é a nota de quem chuta, não a barra da política.",
+            ha="center", va="center", fontsize=14, color=INK, transform=ax.transAxes,
         )
         pdf.savefig(fig)
         plt.close(fig)
 
-        # 6. Por que
+        # 4. Por que 51 = moeda
+        fig = plt.figure(figsize=FIGSIZE)
+        _chrome(fig, 4, n_pages)
+        _title(fig, "Por que 51 não é melhor que cara ou coroa")
+        _bullets(fig, [
+            "Existem duas filas: municípios que bateram a meta e municípios que não bateram.",
+            "Uma moeda, jogada para cada cidade, acerta cerca de metade de cada fila.\nIsso dá 50.",
+            "O modelo acertou 51. É o mesmo que a moeda.\nEle não separa quem vai passar de quem não vai.",
+            "Se o número fosse 80 ou 90, aí sim o mapa estaria antecipando a meta.\n51 quer dizer: o mapa não ajuda.",
+        ], step=0.13, size=16)
+        pdf.savefig(fig)
+        plt.close(fig)
+
+        # 5. 45 vs 70
+        fig = plt.figure(figsize=FIGSIZE)
+        _chrome(fig, 5, n_pages)
+        _title(fig, "Por que 45 perde para 70")
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.axis("off")
+        _box(
+            ax, 0.06, 0.38, 0.42, 0.36,
+            "45 — o modelo",
+            "É a nota do sim ou não\nna prova de 2024.\n\nNum boletim de 0 a 100,\n45 é fraco.",
+        )
+        _box(
+            ax, 0.52, 0.38, 0.42, 0.36,
+            "70 — o chute",
+            "Ninguém olha o mapa.\nSó fala: “todas bateram”.\n\nEm 2024, 53% já estavam\nna meta. O chute acerta mais.",
+        )
+        fig.text(
+            0.06, 0.24,
+            "Ganha quem tem a nota maior. O chute ganha. O modelo perde.\n"
+            "70 não é a meta de alfabetização. É a nota de um palpite burro que, neste ano, funcionou.",
+            fontsize=15, color=INK, va="top", linespacing=1.4,
+        )
+        fig.text(
+            0.06, 0.12,
+            "45 também não é “acertou 45% das cidades”. É a nota do palpite, não um percentual da meta.",
+            fontsize=13, color=MUTED,
+        )
+        pdf.savefig(fig)
+        plt.close(fig)
+
+        # 6. Tem algo errado?
         fig = plt.figure(figsize=FIGSIZE)
         _chrome(fig, 6, n_pages)
-        _title(fig, "A barra ficou parada. O Brasil andou um pouco.")
+        _title(fig, "Tem algo errado? Não.")
         _bullets(fig, [
-            "A meta de 2024 é um número de planejamento — não sobe no meio do ano.",
-            "A taxa de alfabetização subiu o suficiente para muita gente cruzar\na mesma barra: de 18 em cada 100 municípios (2023) para 53 em 100 (2024).",
-            "O palpite aprendeu um mundo em que “na meta” era exceção\ne foi cobrado num mundo em que “na meta” já era maioria.",
-            "Norte e Nordeste seguem abaixo; Sul, Sudeste e Centro-Oeste, acima.\nIsso descreve desigualdade. Não antecipa quem cruza a meta no ano seguinte.",
-        ], step=0.13, size=15)
+            "O cálculo está certo. O modelo estudou 2023 e foi cobrado em 2024, uma vez.",
+            "Ele só viu região, estado e participação na prova.\nCom isso, não dá para saber quem cruza a meta no ano seguinte.",
+            "O resultado honesto é este: 51 (moeda), 45 (modelo), 70 (chute).\nNão é falha de programa. É o que o mapa consegue antecipar — quase nada.",
+            "O sinal de problema seria um modelo que “acerta 99%”.\nQuase sempre ele colou: leu a taxa do próprio ano.",
+        ], step=0.13, size=16)
         pdf.savefig(fig)
         plt.close(fig)
 
-        # 7. O que funciona
+        # 7. Por que aconteceu
         fig = plt.figure(figsize=FIGSIZE)
         _chrome(fig, 7, n_pages)
-        _title(fig, "O que o gestor já tem em janeiro funciona melhor")
-        _bullets(fig, [
-            "A taxa de 2023 já está na mesa quando 2024 começa.\nUsá-la não é cola: é informação do ano anterior.",
-            "Copiar 2023 para estimar 2024 erra cerca de 12 pontos na taxa.\nUm ajuste simples cai para 11,7 pontos e explica 40% da variação.",
-            "Não há 2025 neste estudo: o ajuste descreve 2023→2024.\nNão é previsão do ano que vem.",
-            "Comparar essa taxa prevista com a meta já publicada acerta mais\ndo que classificar a meta às cegas — mas ainda perde de um chute “todo mundo na meta”.",
-        ], step=0.13, size=15)
+        _title(fig, "Por que o chute ganhou neste ano")
+        axb = fig.add_axes([0.07, 0.16, 0.34, 0.58])
+        axb.set_facecolor(PAPER)
+        bars = axb.bar(
+            ["2023", "2024"], [18, 53],
+            color=[TEAL, ACCENT], width=0.55, zorder=2,
+        )
+        axb.set_ylim(0, 70)
+        axb.set_ylabel("Municípios na meta (%)", color=MUTED, fontsize=11)
+        axb.tick_params(colors=NAVY, labelsize=13)
+        for spine in axb.spines.values():
+            spine.set_color("#D9D3C9")
+        axb.spines["top"].set_visible(False)
+        axb.spines["right"].set_visible(False)
+        axb.yaxis.grid(True, color="#E6E1D8", zorder=0)
+        axb.set_axisbelow(True)
+        for bar, val in zip(bars, (18, 53)):
+            axb.text(
+                bar.get_x() + bar.get_width() / 2, val + 2, f"{val}%",
+                ha="center", va="bottom", fontsize=14, fontweight="bold", color=NAVY,
+            )
+        fig.text(0.48, 0.70, "A meta de 2024 não mudou.\nO Brasil andou um pouco.",
+                 fontsize=16, color=INK, va="top", linespacing=1.4)
+        fig.text(0.48, 0.50, "Em 2023, 18 em 100 municípios\nestavam na meta. Era exceção.",
+                 fontsize=16, color=INK, va="top", linespacing=1.4)
+        fig.text(0.48, 0.30, "Em 2024, 53 em 100. Já era maioria.\nChutar “sim” passou a funcionar.",
+                 fontsize=16, color=INK, va="top", linespacing=1.4)
+        fig.text(
+            0.48, 0.12,
+            "Norte e Nordeste seguem atrás; Sul, Sudeste e Centro-Oeste, à frente.\nIsso descreve desigualdade. Não antecipa o ano seguinte.",
+            fontsize=13, color=MUTED, va="top", linespacing=1.35,
+        )
         pdf.savefig(fig)
         plt.close(fig)
 
-        # 8. Recomendação
+        # 8. O que fazer
         fig = plt.figure(figsize=FIGSIZE)
         _chrome(fig, 8, n_pages)
-        _title(fig, "O que recomendamos")
+        _title(fig, "O que fazer com isso")
         _bullets(fig, [
-            "Não alocar recurso com um “semáforo” baseado só em região e participação.\nO risco é parecer científico e ser cara ou coroa.",
-            "Usar a taxa do ano anterior + a meta já publicada para priorizar apoio.\nÉ o que o gestor já tem no primeiro dia letivo.",
-            "Tratar um modelo que “acerta 99%” com desconfiança:\nquase sempre ele está lendo o resultado do próprio ano.",
-            "Detalhe técnico e código aberto para a equipe:\n" + GITHUB,
-        ], step=0.13, size=15)
+            "Não use o modelo como semáforo para soltar recurso.\n51 é cara ou coroa. 45 perde de um chute.",
+            "Na segunda-feira: faça uma fila. Quem estava mais longe da meta\nno ano passado recebe apoio primeiro. Isso não é colar.",
+            "Desconfie de modelo que “acerta 99%”.\nO resultado honesto, aqui, é parecer fraco.",
+            "Código e detalhe técnico:\n" + GITHUB,
+        ], step=0.13, size=16)
+        fig.text(
+            0.09, 0.20,
+            "Vídeo:  " + VIDEO,
+            fontsize=16, color=TEAL, url=VIDEO,
+        )
         pdf.savefig(fig)
         plt.close(fig)
 

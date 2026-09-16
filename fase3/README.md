@@ -18,15 +18,19 @@ O modelo **não** usa a taxa do próprio ano (isso seria copiar o gabarito). Dep
 
 ---
 
+
+
 ## Resultados reais (não inventados)
 
 Seleção **só no treino 2023**, métrica **F1**, `GroupKFold` por município. Prova única em **2024**.
 
-| | CV F1 (treino 2023) | Teste 2024 F1 | Acerto equilibrado | ROC-AUC |
-|---|---|---|---|---|
-| **LogisticRegression C=0.1** (vencedor) | ~0,49 | 0,45 | 0,51 | 0,57 |
-| Dummy maioria no treino (sempre 0) | 0,00 | — | 0,50 | — |
-| Dummy “sempre 1” no teste 2024 | — | ~0,70 | — | — |
+
+|                                         | CV F1 (treino 2023) | Teste 2024 F1 | Acerto equilibrado | ROC-AUC |
+| --------------------------------------- | ------------------- | ------------- | ------------------ | ------- |
+| **LogisticRegression C=0.1** (vencedor) | ~0,49               | 0,45          | 0,51               | 0,57    |
+| Dummy maioria no treino (sempre 0)      | 0,00                | —             | 0,50               | —       |
+| Dummy “sempre 1” no teste 2024          | —                   | ~0,70         | —                  | —       |
+
 
 No teste a acurácia fica ~50% e o F1 perde para um chute “todo mundo na meta”, porque a classe 1 sobe de **~18% em 2023** para **~53% em 2024** (a mesma barra de meta, taxa média um pouco maior). O modelo é **honesto e fraco**: geografia não antecipa quem cruza a meta no ano seguinte.
 
@@ -34,7 +38,9 @@ Arquivos: `models/best_model.pkl`, `models/model_comparison_results.csv`, `repor
 
 ---
 
-## Protocolo (Aula 4)
+
+
+## Protocolo
 
 1. **Backtest temporal:** treino = 2023, teste = 2024. Sem `train_test_split` 80/20 aleatório.
 2. **CV + GridSearch só no treino**, com `GroupKFold` por `id_municipio`.
@@ -45,15 +51,19 @@ Não dá para “testar os outros algoritmos no teste para ver se melhoram”: i
 
 ---
 
+
+
 ## Dados e schema Silver
 
 `data/` está no `.gitignore`. Dois layouts existem neste repositório:
 
-| | Pipeline Fase 2 | Notebooks 01–05 |
-|---|---|---|
-| Pasta | `literacy_indicator` ou `output/silver` | `data/silver/indicador_alfabetizacao` |
-| Colunas | `literacy_rate`, `municipality_id` | `taxa_alfabetizacao`, `id_municipio` |
-| Hive | `year=` / `state_code=` | `ano=` / `sigla_uf=` |
+
+|         | Pipeline Fase 2                         | Notebooks 01–05                       |
+| ------- | --------------------------------------- | ------------------------------------- |
+| Pasta   | `literacy_indicator` ou `output/silver` | `data/silver/indicador_alfabetizacao` |
+| Colunas | `literacy_rate`, `municipality_id`      | `taxa_alfabetizacao`, `id_municipio`  |
+| Hive    | `year=` / `state_code=`                 | `ano=` / `sigla_uf=`                  |
+
 
 A ponte:
 
@@ -68,6 +78,8 @@ python scripts/export_silver_fase3.py
 Os notebooks e o `DataPreparator` **aceitam os dois**: `src/preprocessing/silver_schema.py` traduz inglês → português na leitura.
 
 ---
+
+
 
 ## Como reproduzir
 
@@ -93,11 +105,11 @@ pytest -q
 bash scripts/prepare_fase3.sh   # exporta output/silver → data/silver/indicador_alfabetizacao
 ```
 
-Slides executivos (linguagem não técnica, stakeholders): `presentation/Fase3_executive.pdf` (`python presentation/build_fase3_slides.py`). Roteiro do vídeo de ~5 min: `presentation/SPEAKER_NOTES.md`. Repositório: https://github.com/stvinicius/tech_challenge_fase3
+Slides executivos (linguagem não técnica, stakeholders): `presentation/Fase3_executive.pdf` (`python presentation/build_fase3_slides.py`). Roteiro: `presentation/SPEAKER_NOTES.md`. **Vídeo (~5 min):** [https://youtu.be/H-mDgqTfOLI](https://youtu.be/H-mDgqTfOLI). Repositório: [https://github.com/stvinicius/tech_challenge_fase3](https://github.com/stvinicius/tech_challenge_fase3)
 
 Os notebooks 01, 03 e 04 **não dependem** de `data/processed` ter sido gravado: se a pasta faltar, `load_or_prepare_split` refaz o backtest a partir do Silver. A lista de colunas do modelo é `HONEST_FEATURE_COLUMNS` em `src/preprocessing/data_preparation.py`.
 
-Usar o `.pkl` depois (mesmo `scikit-learn` do `requirements-test.txt`; ver `models/sklearn_version.txt` e [`MODEL_CARD.md`](MODEL_CARD.md)):
+Usar o `.pkl` depois (mesmo `scikit-learn` do `requirements-test.txt`; ver `models/sklearn_version.txt` e `[MODEL_CARD.md](MODEL_CARD.md)`):
 
 ```python
 import joblib
@@ -106,6 +118,8 @@ model = joblib.load("models/best_model.pkl")
 ```
 
 ---
+
+
 
 ## Estrutura (Fase 3)
 
@@ -123,6 +137,8 @@ models/  reports/  requirements.txt
 
 ---
 
+
+
 ## O que este projeto ensina (e o que não entrega)
 
 - Unidade errada (aluno vs município) muda o problema inteiro.
@@ -130,4 +146,4 @@ models/  reports/  requirements.txt
 - Split temporal vs 80/20: o município não pode aparecer nos dois lados.
 - Um F1 de CV ~0,49 **não** vira política pública. O desenho seguinte é o **notebook 05**: regressão `taxa_2023 → taxa_2024`, depois comparar a taxa prevista com a meta já conhecida.
 
-Pipeline AWS: [../fase2/README.md](../fase2/README.md). Testes: `pytest -q` nesta pasta. Slides: `presentation/Fase3_executive.pdf`.
+Pipeline AWS: [../fase2/README.md](../fase2/README.md). Testes: `pytest -q` nesta pasta. Slides: `presentation/Fase3_executive.pdf`. Vídeo: [https://youtu.be/H-mDgqTfOLI](https://youtu.be/H-mDgqTfOLI).

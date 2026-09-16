@@ -33,7 +33,8 @@ jupyter notebook notebooks/01_exploratory_analysis.ipynb
 
 CI: [`.github/workflows/tests.yml`](.github/workflows/tests.yml) roda pytest em **cada pasta** (Fase 3 instala só `requirements-test.txt`).
 
-- Slides executivos Fase 3: [`fase3/presentation/Fase3_executive.pdf`](fase3/presentation/Fase3_executive.pdf) — roteiro de vídeo (~5 min): [`fase3/presentation/SPEAKER_NOTES.md`](fase3/presentation/SPEAKER_NOTES.md)
+- **Vídeo da apresentação (~5 min):** [https://youtu.be/H-mDgqTfOLI](https://youtu.be/H-mDgqTfOLI)
+- Slides executivos Fase 3: [`fase3/presentation/Fase3_executive.pdf`](fase3/presentation/Fase3_executive.pdf) — roteiro: [`fase3/presentation/SPEAKER_NOTES.md`](fase3/presentation/SPEAKER_NOTES.md)
 - Slides Fase 2: [`fase2/presentation/Executive_presentation.pdf`](fase2/presentation/Executive_presentation.pdf)
 - Model Card: [`fase3/MODEL_CARD.md`](fase3/MODEL_CARD.md)
 - Licença: [`LICENSE`](LICENSE) (MIT)
