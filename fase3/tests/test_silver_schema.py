@@ -1,7 +1,7 @@
 from pathlib import Path
+import warnings
 
 import pandas as pd
-import pytest
 
 from src.preprocessing.silver_schema import (
     export_notebook_silver,
@@ -59,3 +59,21 @@ def test_export_notebook_silver_writes_ano_partitions(tmp_path: Path):
     out = read_partitioned_parquet(dest)
     assert "taxa_alfabetizacao" in out.columns
     assert int(out["ano"].iloc[0]) == 2024
+
+
+def test_concat_skips_all_na_columns_without_futurewarning(tmp_path: Path):
+    a = tmp_path / "ano=2023" / "sigla_uf=RO"
+    b = tmp_path / "ano=2024" / "sigla_uf=RO"
+    a.mkdir(parents=True)
+    b.mkdir(parents=True)
+    pd.DataFrame(
+        {"taxa_alfabetizacao": [50.0], "proporcao_aluno_nivel_0": [pd.NA]}
+    ).to_parquet(a / "x.parquet", index=False)
+    pd.DataFrame(
+        {"taxa_alfabetizacao": [70.0], "proporcao_aluno_nivel_0": [1.2]}
+    ).to_parquet(b / "x.parquet", index=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", FutureWarning)
+        out = read_partitioned_parquet(tmp_path)
+    assert len(out) == 2
+    assert out["proporcao_aluno_nivel_0"].notna().sum() == 1

@@ -58,6 +58,25 @@ def normalize_silver_frame(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def concat_partition_frames(frames: list[pd.DataFrame]) -> pd.DataFrame:
+    """Une partições Hive sem o FutureWarning do pandas 2.x.
+
+    Arquivos vazios ou só-NA (colunas de proficiência só em 2024, por exemplo)
+    não entram no concat; as colunas úteis vêm das partições que têm valor.
+    """
+    usable: list[pd.DataFrame] = []
+    for frame in frames:
+        if frame.empty:
+            continue
+        cleaned = frame.dropna(axis=1, how="all")
+        if cleaned.empty:
+            continue
+        usable.append(cleaned)
+    if not usable:
+        raise FileNotFoundError("Partições Parquet vazias ou só com valores nulos.")
+    return pd.concat(usable, ignore_index=True)
+
+
 def read_partitioned_parquet(data_path: Path) -> pd.DataFrame:
     parquet_files = list(data_path.rglob("*.parquet"))
     if not parquet_files:
@@ -73,7 +92,7 @@ def read_partitioned_parquet(data_path: Path) -> pd.DataFrame:
         if uf is not None and "sigla_uf" not in chunk.columns and "state_code" not in chunk.columns:
             chunk["sigla_uf"] = uf
         frames.append(chunk)
-    return normalize_silver_frame(pd.concat(frames, ignore_index=True))
+    return normalize_silver_frame(concat_partition_frames(frames))
 
 
 def resolve_silver_dir(silver_root: Path) -> Path:

@@ -91,7 +91,14 @@ def read_partitioned_parquet_local(base_dir: Path) -> pd.DataFrame:
             if "=" in part:
                 col, value = part.split("=", 1)
                 df[col] = value
-        frames.append(df)
+        if df.empty:
+            continue
+        cleaned = df.dropna(axis=1, how="all")
+        if cleaned.empty:
+            continue
+        frames.append(cleaned)
+    if not frames:
+        return pd.DataFrame()
     return pd.concat(frames, ignore_index=True)
 
 
