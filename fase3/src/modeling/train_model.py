@@ -295,9 +295,14 @@ class ModelTrainer:
         print(f'\nModelo salvo em {filepath}')
         try:
             import sklearn
+            pin = sklearn.__version__
             (filepath.parent / "sklearn_version.txt").write_text(
-                f"{sklearn.__version__}\n", encoding="utf-8"
+                f"{pin}\n"
+                f"Pin do ambiente: fase3/requirements-test.txt (scikit-learn=={pin}).\n"
+                "Se joblib.load falhar, retreine notebooks/03_modeling.ipynb neste venv.\n",
+                encoding="utf-8",
             )
+            print(f"sklearn {pin} gravado em sklearn_version.txt. Mantenha o pin em requirements-test.txt.")
         except Exception:
             pass
 

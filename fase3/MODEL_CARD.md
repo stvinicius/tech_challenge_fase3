@@ -4,7 +4,7 @@
 
 - **Nome:** `fase3/models/best_model.pkl`
 - **Tipo:** `sklearn.pipeline.Pipeline` com `ColumnTransformer` + `LogisticRegression` (`C=0.1`, `class_weight='balanced'`)
-- **Versão do scikit-learn no treino:** ver `fase3/models/sklearn_version.txt` (abra o pickle no mesmo major do `fase3/requirements-test.txt`: `scikit-learn>=1.3,<2`)
+- **Versão do scikit-learn no treino:** `1.7.2` (`fase3/models/sklearn_version.txt`). O pickle só é estável nessa versão: `fase3/requirements-test.txt` pina `scikit-learn==1.7.2` e `numpy>=1.24,<2`
 - **Data da entrega:** 2026-09-15
 - **Repositório:** https://github.com/stvinicius/tech_challenge_fase3
 
@@ -56,7 +56,7 @@ O notebook 03 **não** abre o 2024; o notebook 04 avalia uma vez.
 
 - Deslocamento de prevalência: classe 1 ~18% (2023) → ~53% (2024).
 - OLS lag-1 (notebook 05) descreve o par 2023→2024; **não há 2025** neste Silver.
-- Pickle sklearn não é estável entre majors: reinstale pelo `requirements-test.txt` ou retreine o notebook 03.
+- Pickle sklearn/NumPy não é estável entre versões: instale `scikit-learn==1.7.2` e NumPy 1.x (`numpy>=1.24,<2`) pelo `requirements-test.txt` ou retreine o notebook 03.
 
 ## Ética
 

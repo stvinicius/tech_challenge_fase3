@@ -1,7 +1,7 @@
 # Tech Challenge Fase 3 — Classificação municipal de alfabetização
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)
-![Scikit-learn](https://img.shields.io/badge/Scikit--learn-1.3+-orange.svg)
+![Scikit-learn](https://img.shields.io/badge/Scikit--learn-1.7.2-orange.svg)
 ![Status](https://img.shields.io/badge/Status-Modelo%20honesto%20fraco-yellow.svg)
 
 Continuação da [Fase 2](../fase2/README.md) (pipeline Bronze / Silver / Gold). Aqui o Silver vira um **modelo supervisionado**. A unidade **não é o aluno**: cada linha é **município + ano** (rede municipal). O corte SAEB de **743 pontos** não se aplica a esta tabela — a taxa já veio em **0 a 100%**.
@@ -109,7 +109,7 @@ Slides executivos (linguagem não técnica, stakeholders): `presentation/Fase3_e
 
 Os notebooks 01, 03 e 04 **não dependem** de `data/processed` ter sido gravado: se a pasta faltar, `load_or_prepare_split` refaz o backtest a partir do Silver. A lista de colunas do modelo é `HONEST_FEATURE_COLUMNS` em `src/preprocessing/data_preparation.py`.
 
-Usar o `.pkl` depois (mesmo `scikit-learn` do `requirements-test.txt`; ver `models/sklearn_version.txt` e `[MODEL_CARD.md](MODEL_CARD.md)`):
+Usar o `.pkl` depois (`scikit-learn==1.7.2` e NumPy 1.x, pins de `requirements-test.txt`; ver `models/sklearn_version.txt` e `[MODEL_CARD.md](MODEL_CARD.md)`):
 
 ```python
 import joblib

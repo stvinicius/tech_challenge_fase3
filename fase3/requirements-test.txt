@@ -1,6 +1,8 @@
 pandas>=2.0.0,<3
-numpy>=1.24.0,<3
-scikit-learn>=1.3.0,<2
+# Pickle em models/best_model.pkl usa numpy.core.multiarray (NumPy 1.x).
+numpy>=1.24.0,<2
+# Mesma versão do pickle em models/best_model.pkl (models/sklearn_version.txt).
+scikit-learn==1.7.2
 joblib>=1.3.0,<2
 pyarrow>=12.0.0,<22
 pytest>=7.4.0,<9
